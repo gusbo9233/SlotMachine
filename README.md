@@ -1,33 +1,37 @@
 # Neon Prestige Slots
 
-A responsive React slot machine built for the `casino.md` assignment.
+A responsive browser slot machine built with React and Vite for the casino slots assignment.
 
 ## Features
 
-- 3 reels
-- 12 symbols per reel
-- Randomized spin outcomes
+- 3 reels with 12 symbols per reel
+- Random spin outcomes with staggered reel stopping
 - Center payline win detection for 2 or 3 matching symbols
 - Win feedback with animation and generated sound
-- Mobile-friendly layout with optional credits and bet controls
+- Credits, bet controls, max bet, and mobile-friendly layout
 
-## Run locally
+## Getting Started
 
-1. Install dependencies:
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Start the dev server:
+Start the development server:
 
 ```bash
 npm run dev
 ```
 
-3. Build for production:
+Create a production build:
 
 ```bash
 npm run build
 ```
-# SlotMachine
+
+Preview the production build:
+
+```bash
+npm run preview
+```

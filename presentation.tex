@@ -1,0 +1,293 @@
+\documentclass{beamer}
+\usetheme{metropolis}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  keywordstyle=\color{blue!70!black},
+  stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black},
+  showstringspaces=false,
+}
+
+\title{Casino Slots}
+\subtitle{Project Structure \& React Concepts in Practice}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------
+\section{Project Layout}
+
+\begin{frame}{What's in the Repository?}
+  \begin{itemize}
+    \item \texttt{index.html} --- the single HTML page that loads the app
+    \item \texttt{package.json} --- dependencies and npm scripts
+    \item \texttt{vite.config.js} --- build tool configuration
+    \item \texttt{src/main.jsx} --- the JavaScript entry point
+    \item \texttt{src/App.jsx} --- the slot machine component
+    \item \texttt{src/styles.css} --- all styling
+    \item \texttt{logo.png} --- the jackpot symbol asset
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Toolchain in One Slide}
+  \begin{description}
+    \item[React 18] the UI library; turns components into DOM
+    \item[Vite] dev server + bundler; reloads on save, compiles JSX
+    \item[\texttt{@vitejs/plugin-react}] teaches Vite the JSX syntax
+    \item[npm] installs packages from \texttt{package.json}
+  \end{description}
+  \vfill
+  Three scripts: \texttt{npm run dev}, \texttt{build}, \texttt{preview}.
+\end{frame}
+
+\begin{frame}{How the App Starts}
+  \begin{enumerate}
+    \item Browser loads \texttt{index.html}.
+    \item That file has one \texttt{<div id="root">} and a \texttt{<script>} tag pointing at \texttt{main.jsx}.
+    \item \texttt{main.jsx} calls \texttt{ReactDOM.createRoot(...).render(<App />)}.
+    \item React mounts \texttt{App} inside the root div and takes over.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{The Entry Point}
+\begin{lstlisting}[language=JavaScript]
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles.css';
+
+ReactDOM.createRoot(document.getElementById('root'))
+  .render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+\end{lstlisting}
+  \texttt{StrictMode} double-invokes effects in dev to surface bugs.
+\end{frame}
+
+% ---------------------------------------------------------------
+\section{Component Architecture}
+
+\begin{frame}{Two Components, Clear Roles}
+  \begin{description}
+    \item[\texttt{App}] the ``smart'' parent --- owns all state, game logic, event handlers.
+    \item[\texttt{Reel}] a ``dumb'' child --- receives props and renders one reel.
+  \end{description}
+  \vfill
+  A common React pattern: push state up, keep leaves presentational.
+\end{frame}
+
+\begin{frame}{Data Flow}
+  \begin{center}
+    \textbf{Props flow down. Events flow up.}
+  \end{center}
+  \vfill
+  \begin{itemize}
+    \item \texttt{App} passes \texttt{symbols}, \texttt{centerIndex}, \texttt{spinning}, \texttt{highlighted} to each \texttt{Reel}.
+    \item User clicks a button $\rightarrow$ handler in \texttt{App} updates state $\rightarrow$ React re-renders.
+    \item \texttt{Reel} never mutates anything --- it just displays.
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------
+\section{React Concepts in Action}
+
+\begin{frame}[fragile]{Concept 1: JSX}
+\begin{lstlisting}[language=JavaScript]
+<button
+  className="spin-button"
+  onClick={handleSpin}
+  disabled={!canSpin}
+>
+  {spinning ? 'Spinning...' : 'Spin'}
+</button>
+\end{lstlisting}
+  \begin{itemize}
+    \item Braces \texttt{\{...\}} embed JavaScript inside markup.
+    \item \texttt{onClick} takes a function reference, not a string.
+    \item \texttt{className} (not \texttt{class}) because \texttt{class} is a reserved word.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 2: \texttt{useState} --- Reactive Memory}
+\begin{lstlisting}[language=JavaScript]
+const [credits, setCredits] = useState(500);
+const [spinning, setSpinning] = useState(false);
+const [bet, setBet] = useState(20);
+\end{lstlisting}
+  \begin{itemize}
+    \item Each call gives a value and its setter.
+    \item Calling the setter re-renders the component.
+    \item The app tracks 10 pieces of state this way.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 3: \texttt{useMemo} --- Cached Computation}
+\begin{lstlisting}[language=JavaScript]
+const reels = useMemo(buildReels, []);
+
+const visibleGrid = useMemo(
+  () => createVisibleGrid(reels, centerIndices),
+  [centerIndices, reels],
+);
+\end{lstlisting}
+  \begin{itemize}
+    \item Recomputes only when dependencies change.
+    \item Empty array \texttt{[]} means ``compute once, ever.''
+    \item Keeps render cheap on large/derived data.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 4: \texttt{useRef} --- Non-Reactive Storage}
+\begin{lstlisting}[language=JavaScript]
+const timersRef = useRef([]);
+
+timersRef.current.push({ type: 'timeout', id });
+\end{lstlisting}
+  \begin{itemize}
+    \item Persists across renders like state, but does \textbf{not} trigger re-renders.
+    \item Perfect for timers, animation IDs, DOM handles.
+    \item Here: holds every pending \texttt{setTimeout} / \texttt{requestAnimationFrame} so we can cancel them.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 5: \texttt{useEffect} --- Lifecycle \& Cleanup}
+\begin{lstlisting}[language=JavaScript]
+useEffect(() => {
+  return () => {
+    timersRef.current.forEach(({ type, id }) => {
+      if (type === 'frame') cancelAnimationFrame(id);
+      else clearTimeout(id);
+    });
+  };
+}, []);
+\end{lstlisting}
+  \begin{itemize}
+    \item Runs side effects outside the render phase.
+    \item The returned function runs on unmount --- cancels timers so nothing leaks.
+    \item \texttt{[]} dependency = ``mount once, clean up once.''
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 6: Props and Destructuring}
+\begin{lstlisting}[language=JavaScript]
+function Reel({ symbols, centerIndex, spinning, highlighted }) {
+  ...
+}
+
+<Reel
+  symbols={reel}
+  centerIndex={centerIndices[reelIndex]}
+  spinning={!settledReels[reelIndex]}
+  highlighted={highlightedReels[reelIndex]}
+/>
+\end{lstlisting}
+  \begin{itemize}
+    \item Parent passes data as HTML-like attributes.
+    \item Child destructures the props object for readability.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 7: Lists and \texttt{key}}
+\begin{lstlisting}[language=JavaScript]
+{reels.map((reel, reelIndex) => (
+  <Reel
+    key={`reel-${reelIndex}`}
+    symbols={reel}
+    ...
+  />
+))}
+\end{lstlisting}
+  \begin{itemize}
+    \item \texttt{map} turns an array of data into an array of elements.
+    \item \texttt{key} lets React track items efficiently across renders.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 8: Conditional Rendering}
+\begin{lstlisting}[language=JavaScript]
+<main className={`app-shell ${lastWin ? 'win-state' : ''}`}>
+
+{symbol === JACKPOT_SYMBOL
+  ? <img src={logoUrl} alt="Jackpot logo" />
+  : <span>{symbol}</span>}
+
+{spinning ? 'Spinning...' : 'Spin'}
+\end{lstlisting}
+  \begin{itemize}
+    \item Ternaries pick between two JSX branches.
+    \item Template literals compose class names from state.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Concept 9: Functional State Updates}
+\begin{lstlisting}[language=JavaScript]
+setCredits((current) => current - bet);
+
+setSettledReels((current) =>
+  current.map((v, i) => (i === reelIndex ? true : v))
+);
+\end{lstlisting}
+  \begin{itemize}
+    \item When the new state depends on the old, pass a function.
+    \item Safer than \texttt{setCredits(credits - bet)} --- avoids stale closures when multiple updates queue up.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Concept 10: One-Way Data Flow}
+  \begin{enumerate}
+    \item State lives in \texttt{App}.
+    \item Render computes JSX from that state.
+    \item Events run handlers that call setters.
+    \item Setters mark state dirty; React re-runs the render.
+    \item The DOM is updated minimally by the reconciler.
+  \end{enumerate}
+  \vfill
+  No two-way binding, no manual DOM manipulation.
+\end{frame}
+
+% ---------------------------------------------------------------
+\section{Putting It Together}
+
+\begin{frame}{The Spin Lifecycle}
+  \begin{enumerate}
+    \item User clicks \textbf{Spin} $\rightarrow$ \texttt{handleSpin()}.
+    \item Pick random targets; deduct bet via \texttt{setCredits}.
+    \item \texttt{scheduleSpinAnimation} loops with \texttt{requestAnimationFrame}, updating \texttt{centerIndices} each frame.
+    \item Staggered \texttt{setTimeout}s mark each reel \texttt{settled}.
+    \item \texttt{finishSpin} evaluates the center row, credits payout, sets the message.
+    \item React re-renders; win-state class lights up the cabinet.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Separation of Concerns}
+  \begin{description}
+    \item[Pure functions] \texttt{buildReels}, \texttt{createVisibleGrid}, \texttt{getLineWin} --- testable game math with no React.
+    \item[Components] render JSX from props/state.
+    \item[CSS] owns animation (\texttt{.reel-strip.spinning}), glow, layout.
+    \item[React] glues it all together through state.
+  \end{description}
+\end{frame}
+
+\begin{frame}{Takeaways}
+  \begin{itemize}
+    \item A tiny app still exercises the core of React: components, props, state, effects, refs, memo.
+    \item Keep logic in pure functions; keep React for rendering + state.
+    \item Push state up, pass data down, handle events via callbacks.
+    \item Always clean up timers and subscriptions in \texttt{useEffect}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[standout]
+  Questions?
+\end{frame}
+
+\end{document}
